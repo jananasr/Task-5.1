@@ -96,6 +96,7 @@ export async function getDirectory(req, res, next) {
 
 // GET /api/instructors/search
 
+
 export async function searchInstructors(req, res, next) {
   try {
     const schema = Joi.object({
@@ -106,16 +107,20 @@ export async function searchInstructors(req, res, next) {
       convert: false
     });
 
+    // Invalid or malicious filters return an empty result
+    // without executing any database query
     if (error) {
-      return res.status(400).json({
-        message: 'Invalid search input'
+      return res.status(200).json({
+        count: 0,
+        instructors: []
       });
     }
 
-    // Escape special regex characters from the user's input
-    const safeName = value.name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Escape special regex characters
+    const safeName = value.name.trim()
+      .replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-    // Search by name only
+    // Only search using the validated name
     const instructors = await Instructor.find({
       name: { $regex: safeName, $options: 'i' }
     })
@@ -123,7 +128,7 @@ export async function searchInstructors(req, res, next) {
       .sort({ name: 1 })
       .lean();
 
-    return res.json({
+    return res.status(200).json({
       count: instructors.length,
       instructors
     });
@@ -132,4 +137,5 @@ export async function searchInstructors(req, res, next) {
     next(err);
   }
 }
+
 
