@@ -3,6 +3,7 @@ dotenv.config();
 import mongoose from 'mongoose';
 import { connectDB } from '../config/db.js';
 import { Instructor } from '../models/Instructor.js';
+import bcrypt from 'bcryptjs';
 
 // Seed data for the Instructor Portal NoSQL injection lab.
 // Passwords are plaintext ON PURPOSE (see Instructor model / Flow.md).
@@ -47,18 +48,34 @@ const instructors = [
   }
 ];
 
+
 async function run() {
   await connectDB();
-  await Instructor.deleteMany({});
-  const created = await Instructor.insertMany(instructors);
-  console.log(`Seeded ${created.length} instructor(s):`);
-  for (const i of created) {
-    console.log(`  - ${i.username} (${i.role})`);
+
+  for (const instructor of instructors) {
+    // Convert the plaintext password into a secure hash
+    const hashedPassword = await bcrypt.hash(instructor.password, 12);
+
+    // Update the existing instructor, or create it if missing
+    await Instructor.updateOne(
+      { username: instructor.username },
+      {
+        $set: {
+          ...instructor,
+          password: hashedPassword
+        }
+      },
+      { upsert: true, runValidators: true }
+    );
+
+    console.log(`Seeded/updated: ${instructor.username}`);
   }
+
   await mongoose.disconnect();
   console.log('Done.');
   process.exit(0);
 }
+
 
 run().catch((err) => {
   console.error('Seed failed:', err);
